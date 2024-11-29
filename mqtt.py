@@ -4,6 +4,7 @@ import paho.mqtt.client as mqtt
 import time
 import threading
 import RPi.GPIO as GPIO
+import json
 
 from loguru import logger
 import sys
@@ -17,18 +18,20 @@ RELAY_PIN = 12
 # Set the relay pin as an output pin
 GPIO.setup(RELAY_PIN, GPIO.OUT)
 
+log_msg = ""
+
 class MQTTServer:
     def __init__(self):
         # self._endpoints = Endpoints()
         # MQTT server config
         # broker here is the mosquito broker running on the pi
-        self._broker = "localhost"
+        self._broker = "192.168.1.75"
         self._port = 1883
         self._topic = "weird-stuff"
         
         # set up MQTT client
         self._client = mqtt.Client()
-        self._client.username_pw_set("pico", "ndl@group3")
+        self._client.username_pw_set("app", "ndl@group3")
         self._client.on_message = self._on_message
         self._connect()
         
@@ -37,11 +40,10 @@ class MQTTServer:
         
         # configure log format
         logger.remove(0)
-        logger.add(sys.stderr, serialize=True)
+        logger.add(log_msg, serialize=True)
       
         
-    @classmethod
-    def _on_message(cls, client, userdata, msg):
+    def _on_message(self, client, userdata, msg):
         match msg.topic:
             case "":
                 payload = msg.payload.decode()
@@ -51,26 +53,37 @@ class MQTTServer:
                     GPIO.output(RELAY_PIN, GPIO.LOW)
                     
                     # logging
+                    log_msg = ""
                     if not GPIO.input(RELAY_PIN):
                         logger.success("The lock closed successfully.")
                     else:
                         logger.error("The lock close failed.")
-                    client.publish(str(logger), "logs")
-                    
-                    # wait
-                    time.sleep(2)
+                    self._client.publish(json.dumps(log_msg), "logs")
+
                 else:
                     GPIO.output(RELAY_PIN, GPIO.HIGH)
                     
                     # logging
+                    log_msg = ""
                     if GPIO.input(RELAY_PIN):
                         logger.success("The lock opened successfully.")
                     else:
                         logger.error("The lock open failed.")
-                    client.publish(str(logger), "logs")
+                    # self._client.publish(str(logger), "logs")
+                    self.send_message(json.dumps(log_msg), "logs")
                     
-                    # wait
-                    time.sleep(2)
+                    # close
+                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    
+                    # logging 
+                    log_msg = ""
+                    if not GPIO.input(RELAY_PIN):
+                        logger.success("The lock closed successfully.")
+                    else:
+                        logger.error("The lock close failed.")
+                    # self._client.publish(str(logger), "logs")
+                    print(log_msg)
+                    self.send_message(json.dumps(log_msg), "logs")
             case _:
                 pass
 
