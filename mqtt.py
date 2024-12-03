@@ -4,9 +4,13 @@ import paho.mqtt.client as mqtt
 import time
 import threading
 import RPi.GPIO as GPIO
+import json
 
 from loguru import logger
+import loguru
 import sys
+
+from file_operations import FileTransfer
 
 # Set the GPIO mode (BCM or BOARD)
 GPIO.setmode(GPIO.BCM)
@@ -19,16 +23,15 @@ GPIO.setup(RELAY_PIN, GPIO.OUT)
 
 class MQTTServer:
     def __init__(self):
-        # self._endpoints = Endpoints()
         # MQTT server config
         # broker here is the mosquito broker running on the pi
-        self._broker = "localhost"
+        self._broker = "192.168.1.75"
         self._port = 1883
         self._topic = "weird-stuff"
         
         # set up MQTT client
         self._client = mqtt.Client()
-        self._client.username_pw_set("pico", "ndl@group3")
+        self._client.username_pw_set("app", "ndl@group3")
         self._client.on_message = self._on_message
         self._connect()
         
@@ -37,11 +40,10 @@ class MQTTServer:
         
         # configure log format
         logger.remove(0)
-        logger.add(sys.stderr, serialize=True)
+        logger.add("mqtt.log", serialize=True)
       
         
-    @classmethod
-    def _on_message(cls, client, userdata, msg):
+    def _on_message(self, client, userdata, msg):
         match msg.topic:
             case "":
                 payload = msg.payload.decode()
@@ -55,10 +57,7 @@ class MQTTServer:
                         logger.success("The lock closed successfully.")
                     else:
                         logger.error("The lock close failed.")
-                    client.publish(str(logger), "logs")
-                    
-                    # wait
-                    time.sleep(2)
+
                 else:
                     GPIO.output(RELAY_PIN, GPIO.HIGH)
                     
@@ -67,16 +66,27 @@ class MQTTServer:
                         logger.success("The lock opened successfully.")
                     else:
                         logger.error("The lock open failed.")
-                    client.publish(str(logger), "logs")
                     
-                    # wait
-                    time.sleep(2)
+                    # close
+                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    
+                    # logging 
+                    if not GPIO.input(RELAY_PIN):
+                        logger.success("The lock closed successfully.")
+                    else:
+                        logger.error("The lock close failed.")
+                        
             case _:
                 pass
 
 
     def _connect(self):
-        self._client.connect(self._broker, self._port)
+        try:
+            self._client.connect(self._broker, self._port)
+            logger.success("MQTT server launched successfully.")
+        except:
+            logger.error("MQTT server launch failed.")
+            
 
 
     def _mqtt_loop(self):
@@ -96,7 +106,6 @@ class MQTTServer:
         self._mqtt_loop()
         try:
             while True:
-                # self.send_message(str(logger), "logs")
                 time.sleep(1)
         except KeyboardInterrupt:
             print("Publisher stopped")
@@ -111,6 +120,8 @@ class MQTTServer:
 def main():
     mqtt = MQTTServer()
     mqtt.run()
+    
+    
     
     
 if __name__ == "__main__":
