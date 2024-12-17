@@ -1,20 +1,18 @@
 from datetime import datetime
 import threading
-from loguru import logger
 from FileOperations import FileTransfer
-from LockAPi import LockAPi
 
 class FileTransferDaemon:
 	def __init__(self):
 		self.ft = FileTransfer("/home/ndl/ndl-project/mqtt.log")
-		self.start = datetime.day
+		self.start = datetime.now().minute
 
 	def _run(self):
 		while True:
-			end = datetime.day
+			end = datetime.now().minute
 			if (end != self.start):
 				self.ft.file_transfer()
-				self.start = datetime.now()
+				self.start = datetime.now().minute
 				
 			
 	def run(self):	

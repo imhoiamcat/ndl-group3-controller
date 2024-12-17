@@ -7,7 +7,7 @@ import time
 from LockAPi import LockAPi
 
 class DoorDaemon:
-	def __init__(self, lock):
+	def __init__(self, lock: LockAPi):
 		self.lock = lock
 
 	def _run(self):

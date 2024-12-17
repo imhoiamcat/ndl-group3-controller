@@ -18,7 +18,13 @@ class LockAPi:
         GPIO.output(self.RELAY_PIN, GPIO.HIGH)    
 
     def get_lock_status(self):
-        return GPIO.input(self.RELAY_PIN)    
+        return GPIO.input(self.RELAY_PIN)   
+
+    def get_status(self):
+        if self.get_lock_status():
+            return "open"
+        else:
+            return "close" 
 
 
 # to test the lock APi

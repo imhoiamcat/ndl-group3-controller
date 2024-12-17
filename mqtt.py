@@ -1,21 +1,16 @@
 import paho.mqtt.client as mqtt
-import time
 import threading
 
 from loguru import logger
 
-from FileOperations import FileTransfer
-
 from DoorDaemon import DoorDaemon
-
-from RfidDaemon import RfidDaemon
 
 from FileTransferDaemon import FileTransferDaemon
 
 from LockAPi import LockAPi
 
 class MQTTServer:
-    def __init__(self, lock):
+    def __init__(self, lock: LockAPi):
         # MQTT server config
         # broker here is the mosquito broker running on the pi
         self._broker = "192.168.1.75"
@@ -30,6 +25,7 @@ class MQTTServer:
         
         # subscribe to the topic I need to listen to
         self._client.subscribe("magnetic_lock")
+        self._client.subscribe("rfid")
         
         # configure log format
         logger.remove(0)
@@ -38,41 +34,13 @@ class MQTTServer:
         # set lock to the lock passed
         self.lock = lock
         
-        
+
     def _on_message(self, client, userdata, msg):
         match msg.topic:
-            case "":
-                payload = msg.payload.decode()
             case "magnetic_lock":
-                payload = msg.payload.decode()
-                if payload == "close":
-                    self.lock.close_lock()
-                    
-                    # logging
-                    if not self.lock.get_lock_satus():
-                        logger.success("The lock closed successfully.")
-                    else:
-                        logger.error("The lock close failed.")
-
-                elif payload == "open":
-                    self.lock.open_lock()
-                    
-                    # logging
-                    if self.lock.get_lock_satus():
-                        logger.success("The lock opened successfully.")
-                    else:
-                        logger.error("The lock open failed.")
-                    
-                    # open for 1 minute and then close
-                    # door_daemon = DoorDaemon()
-                    # door_daemon.run()
-                    
-                    # logging 
-                    if not self.lock.get_lock_status():
-                        logger.success("The lock closed successfully.")
-                    else:
-                        logger.error("The lock close failed.")
-                        
+                self.handle_lock(msg)
+            case "rfid":
+                self.handle_lock(msg)
             case _:
                 pass
 
@@ -85,25 +53,51 @@ class MQTTServer:
             logger.error("MQTT server launch failed.")
             
 
-
     def _mqtt_loop(self):
         self._client.loop_start()
         
+
     def send_message(self, message, topic=None):
         if not topic:
             topic = self._topic
         self._client.publish(topic, message)
-        
-    # subscriber; topic: logs
-    def logs_dump(self):
-        pass
+
+
+    def handle_lock(self, msg):
+        payload = msg.payload.decode()
+        if payload == "close":
+            self.lock.close_lock()      
+            # logging
+            if not self.lock.get_lock_satus():
+                logger.success("The lock closed successfully.")
+            else:
+                logger.error("The lock close failed.")
+
+        elif payload == "open":
+            self.lock.open_lock() 
+            # logging
+            if self.lock.get_lock_satus():
+                logger.success("The lock opened successfully.")
+            else:
+                logger.error("The lock open failed.")
+                # open for 1 minute and then close
+                # door_daemon = DoorDaemon()
+                # door_daemon.run()
+                # logging 
+                if not self.lock.get_lock_status():
+                    logger.success("The lock closed successfully.")
+                else:
+                    logger.error("The lock close failed.")
+
+        # sent lock status
+            self.send_message(self.lock.get_status(), "lock")
 
 
     def _run(self):
         self._mqtt_loop()
         try:
             while True:
-                time.sleep(1)
+                pass
         except KeyboardInterrupt:
             print("Publisher stopped")
         self._client.loop_stop()
@@ -119,10 +113,6 @@ def main():
     lock = LockAPi()
     mqtt = MQTTServer(lock)
     mqtt.run()
-    
-    # if face recognition fails, the tag can be used to authenticate
-    rfid_daemon = RfidDaemon(lock)
-    rfid_daemon.run()
 
     # to handle openning the door
     door_daemon = DoorDaemon(lock)
