@@ -1,28 +1,21 @@
-from lib2to3.pgen2.tokenize import endprogs
-
 import paho.mqtt.client as mqtt
 import time
 import threading
-import RPi.GPIO as GPIO
-import json
 
 from loguru import logger
-import loguru
-import sys
 
-from file_operations import FileTransfer
+from FileOperations import FileTransfer
 
-# Set the GPIO mode (BCM or BOARD)
-GPIO.setmode(GPIO.BCM)
+from DoorDaemon import DoorDaemon
 
-# Define the GPIO pin controlled the electromagnetic lock via the relay module
-RELAY_PIN = 12
+from RfidDaemon import RfidDaemon
 
-# Set the relay pin as an output pin
-GPIO.setup(RELAY_PIN, GPIO.OUT)
+from FileTransferDaemon import FileTransferDaemon
+
+from LockAPi import LockAPi
 
 class MQTTServer:
-    def __init__(self):
+    def __init__(self, lock):
         # MQTT server config
         # broker here is the mosquito broker running on the pi
         self._broker = "192.168.1.75"
@@ -41,7 +34,10 @@ class MQTTServer:
         # configure log format
         logger.remove(0)
         logger.add("mqtt.log", serialize=True)
-      
+
+        # set lock to the lock passed
+        self.lock = lock
+        
         
     def _on_message(self, client, userdata, msg):
         match msg.topic:
@@ -50,28 +46,29 @@ class MQTTServer:
             case "magnetic_lock":
                 payload = msg.payload.decode()
                 if payload == "close":
-                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    self.lock.close_lock()
                     
                     # logging
-                    if not GPIO.input(RELAY_PIN):
+                    if not self.lock.get_lock_satus():
                         logger.success("The lock closed successfully.")
                     else:
                         logger.error("The lock close failed.")
 
-                else:
-                    GPIO.output(RELAY_PIN, GPIO.HIGH)
+                elif payload == "open":
+                    self.lock.open_lock()
                     
                     # logging
-                    if GPIO.input(RELAY_PIN):
+                    if self.lock.get_lock_satus():
                         logger.success("The lock opened successfully.")
                     else:
                         logger.error("The lock open failed.")
                     
-                    # close
-                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    # open for 1 minute and then close
+                    # door_daemon = DoorDaemon()
+                    # door_daemon.run()
                     
                     # logging 
-                    if not GPIO.input(RELAY_PIN):
+                    if not self.lock.get_lock_status():
                         logger.success("The lock closed successfully.")
                     else:
                         logger.error("The lock close failed.")
@@ -118,11 +115,22 @@ class MQTTServer:
 
 
 def main():
-    mqtt = MQTTServer()
+    # mqtt
+    lock = LockAPi()
+    mqtt = MQTTServer(lock)
     mqtt.run()
     
-    
-    
+    # if face recognition fails, the tag can be used to authenticate
+    rfid_daemon = RfidDaemon(lock)
+    rfid_daemon.run()
+
+    # to handle openning the door
+    door_daemon = DoorDaemon(lock)
+    door_daemon.run()
+
+    # to send log file
+    file_daemon = FileTransferDaemon()
+    file_daemon.run()
     
 if __name__ == "__main__":
     main()
