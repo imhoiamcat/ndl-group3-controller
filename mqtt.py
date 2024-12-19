@@ -14,18 +14,19 @@ class MQTTServer:
         # MQTT server config
         # broker here is the mosquito broker running on the pi
         self._broker = "192.168.1.75"
+        # self._broker = "100.100.6.68" 
         self._port = 1883
         self._topic = "weird-stuff"
         
         # set up MQTT client
         self._client = mqtt.Client()
-        self._client.username_pw_set("app", "ndl@group3")
+        # self._client.username_pw_set("app", "ndl@group3")
+        self._client.username_pw_set("server", "ndl@group3")
         self._client.on_message = self._on_message
         self._connect()
         
-        # subscribe to the topic I need to listen to
+        # subscribe to the topics I need to listen to
         self._client.subscribe("magnetic_lock")
-        self._client.subscribe("rfid")
         
         # configure log format
         logger.remove(0)
@@ -38,8 +39,6 @@ class MQTTServer:
     def _on_message(self, client, userdata, msg):
         match msg.topic:
             case "magnetic_lock":
-                self.handle_lock(msg)
-            case "rfid":
                 self.handle_lock(msg)
             case _:
                 pass
@@ -68,7 +67,7 @@ class MQTTServer:
         if payload == "close":
             self.lock.close_lock()      
             # logging
-            if not self.lock.get_lock_satus():
+            if not self.lock.get_lock_status():
                 logger.success("The lock closed successfully.")
             else:
                 logger.error("The lock close failed.")
@@ -76,20 +75,12 @@ class MQTTServer:
         elif payload == "open":
             self.lock.open_lock() 
             # logging
-            if self.lock.get_lock_satus():
+            if self.lock.get_lock_status():
                 logger.success("The lock opened successfully.")
             else:
                 logger.error("The lock open failed.")
-                # open for 1 minute and then close
-                # door_daemon = DoorDaemon()
-                # door_daemon.run()
-                # logging 
-                if not self.lock.get_lock_status():
-                    logger.success("The lock closed successfully.")
-                else:
-                    logger.error("The lock close failed.")
 
-        # sent lock status
+            # sent lock status
             self.send_message(self.lock.get_status(), "lock")
 
 

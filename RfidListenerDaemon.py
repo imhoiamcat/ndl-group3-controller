@@ -3,12 +3,12 @@ from pirc522 import RFID
 from LockAPi import LockAPi
 from mqtt import MQTTServer
 import threading 
+import hashlib
 
 class RfidListenerDaemon:
     def __init__(self, mqtt_server:MQTTServer):
         self.mqtt_server = mqtt_server
         self.rdr = RFID()
-        #self.util = self.rdr.util()
 
     def _run(self):
         try:
@@ -19,12 +19,9 @@ class RfidListenerDaemon:
                     print("\ndetected")
                     (error, uid) = self.rdr.anticoll()
                     if not error:
-                        # print("Card uid:" + str(uid))
-                        # self.util.set_tag(uid)
-                        # self.util.auth(self.rdr.auth_a, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
                         print(str(uid))
-                        self.mqtt_server.send_message(str(uid), "rfid")
-                        # self.util.deauth()
+                        hashed_uid = hashlib.sha256(str(uid).encode()).hexdigest()
+                        self.mqtt_server.send_message(hashed_uid, "rfid")
 
         except KeyboardInterrupt:
             print('interrupted!')
@@ -35,7 +32,8 @@ class RfidListenerDaemon:
 
 # to test the rfid daemon
 def main():
-   mqtt = MQTTServer()
+   lock = LockAPi()
+   mqtt = MQTTServer(lock)
    daemon = RfidListenerDaemon(mqtt)
    daemon.run()
     

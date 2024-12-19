@@ -11,6 +11,7 @@ from mqtt import MQTTServer
 def main():
     # mqtt
     lock = LockAPi()
+    
     mqtt = MQTTServer(lock)
     mqtt.run()
     

@@ -10,18 +10,23 @@ class LockAPi:
         GPIO.setup(self.RELAY_PIN, GPIO.OUT)
         # When just created set lock to close
         GPIO.output(self.RELAY_PIN, GPIO.LOW)
+        self.status = 0
 
     def close_lock(self):
-        GPIO.output(self.RELAY_PIN, GPIO.LOW)
+        if (self.status):
+            GPIO.output(self.RELAY_PIN, GPIO.LOW)
+            self.status = 0
 
     def open_lock(self):
-        GPIO.output(self.RELAY_PIN, GPIO.HIGH)    
+        if not self.status:
+            GPIO.output(self.RELAY_PIN, GPIO.HIGH)    
+            self.status = 1
 
     def get_lock_status(self):
-        return GPIO.input(self.RELAY_PIN)   
+        return self.status
 
     def get_status(self):
-        if self.get_lock_status():
+        if self.status:
             return "open"
         else:
             return "close" 
