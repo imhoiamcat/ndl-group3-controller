@@ -13,8 +13,8 @@ class MQTTServer:
     def __init__(self, lock: LockAPi):
         # MQTT server config
         # broker here is the mosquito broker running on the pi
-        self._broker = "192.168.1.75"
-        # self._broker = "100.100.6.68" 
+        # self._broker = "192.168.1.75"
+        self._broker = "100.100.6.68" 
         self._port = 1883
         self._topic = "weird-stuff"
         
